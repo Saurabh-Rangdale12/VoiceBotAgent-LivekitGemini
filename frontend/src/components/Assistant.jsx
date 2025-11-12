@@ -4,6 +4,7 @@ import { RoomEvent } from 'livekit-client';
 import VoiceUI from './VoiceUI';
 import MetricsDisplay from './MetricsDisplay'; // Import the new component
 
+// This helper component is a good pattern and remains unchanged.
 const RoomManager = ({ onDataReceived }) => {
   const room = useContext(RoomContext);
   useEffect(() => {
@@ -20,13 +21,20 @@ const RoomManager = ({ onDataReceived }) => {
 export default function Assistant({ setShowAssistant, selectedModel }) {
   const [token, setToken] = useState(null);
   const [vadStatus, setVadStatus] = useState('SILENT');
-  const [metrics, setMetrics] = useState(null); // State for the metrics object
+  
+  // 1. Initialize metrics as an empty object and transcript as an empty string.
+  const [metrics, setMetrics] = useState({});
+  const [transcript, setTranscript] = useState('');
 
+  // getToken function remains the same.
   const getToken = useCallback(async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5001/get-token?model=${encodeURIComponent(selectedModel)}`
-      );
+      const identity = `user-${Math.floor(Math.random() * 10000)}`;
+      const room = "gemini-test-room";
+      const url = `http://localhost:5001/get-token?identity=${encodeURIComponent(
+        identity
+      )}&room=${encodeURIComponent(room)}&model=${encodeURIComponent(selectedModel)}`;
+      const response = await fetch(url);
       const data = await response.json();
       setToken(data.token);
     } catch (error) {
@@ -38,17 +46,31 @@ export default function Assistant({ setShowAssistant, selectedModel }) {
     getToken();
   }, [getToken]);
 
+  // 2. Revise the data handling logic to aggregate state.
   const onDataReceived = useCallback((payload) => {
-    const decoder = new TextDecoder();
-    const message = JSON.parse(decoder.decode(payload));
-    
-    if (message.type === 'vad_update') {
-      setVadStatus(message.status);
-    } else if (message.type === 'metrics_update') {
-      // Handle the new metrics message
-      setMetrics(message.data);
+    try {
+      const decoder = new TextDecoder();
+      const message = JSON.parse(decoder.decode(payload));
+
+      console.log("📩 Data received:", message);
+
+      if (message.type === "vad_update") {
+        setVadStatus(message.status);
+      } else if (message.type === "transcript_update") {
+        // Handle transcript updates separately
+        setTranscript(message.transcript);
+      } else if (message.type === "metrics_update") {
+        // Use the functional form of setState to merge new metrics
+        // with the previous state.
+        setMetrics(prevMetrics => ({
+          ...prevMetrics,
+          [message.metric_type]: message.data,
+        }));
+      }
+    } catch (err)    { console.error("Error parsing incoming data:", err);
     }
   }, []);
+
 
   if (!token) {
     return <div>Loading...</div>;
@@ -65,14 +87,13 @@ export default function Assistant({ setShowAssistant, selectedModel }) {
           audio={true}
           onDisconnected={() => setShowAssistant(false)}
         >
-          {/* Main Content Wrapper */}
           <div className="assistant-wrapper">
             <div className="voice-ui-main">
               <RoomAudioRenderer />
               <VoiceUI vadStatus={vadStatus} />
             </div>
-            {/* Render the new MetricsDisplay component */}
-            <MetricsDisplay metrics={metrics} />
+            {/* 3. Pass both metrics and transcript to the display component */}
+            <MetricsDisplay metrics={metrics} transcript={transcript} />
           </div>
 
           <RoomManager onDataReceived={onDataReceived} />

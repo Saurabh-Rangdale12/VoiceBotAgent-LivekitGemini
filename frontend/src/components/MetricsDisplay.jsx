@@ -1,78 +1,69 @@
 import React from 'react';
 
-// Helper to format timestamps and durations
-const formatTime = (timestamp) => new Date(timestamp * 1000).toLocaleTimeString();
-const formatDuration = (seconds) => `${seconds.toFixed(3)}s`;
-
-const MetricBlock = ({ title, data, formatters = {} }) => {
-  // Don't render the block if there's no data
-  if (!data || Object.keys(data).length === 0) return null;
-  
-  return (
-    <div className="metric-block">
-      <h3>{title}</h3>
-      {Object.entries(data).map(([key, value]) => {
-        if (value === null || value === undefined) return null;
-        // Convert camelCase to Title Case
-        const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
-        const displayValue = formatters[key] ? formatters[key](value) : value.toString();
-        return (
-          <p key={key}>
-            <strong>{displayKey}:</strong> {displayValue}
-          </p>
-        );
-      })}
-    </div>
-  );
+// Helper to format timestamps nicely
+const formatTimestamp = (ts) => {
+  if (!ts) return 'N/A';
+  try {
+    const date = new Date(ts);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+  } catch (e) {
+    return 'Invalid Date';
+  }
 };
 
-export default function MetricsDisplay({ metrics }) {
-  // THE FIX: Check if metrics or metrics.llm exist before trying to render.
-  if (!metrics || !metrics.llm) {
-    return (
-      <div className="metrics-container placeholder">
-        <p>Waiting for first user utterance to collect metrics...</p>
-      </div>
-    );
-  }
+export default function MetricsDisplay({ metrics, transcript }) {
+  // Destructure the metrics object for easier access
+  const { vad, eou, llm, tts } = metrics;
 
   return (
-    <div className="metrics-container">
-      {/* Conditionally render blocks based on available data */}
-      {metrics.transcript && <MetricBlock title="Last Transcript Metrics" data={{ Transcript: metrics.transcript }} />}
-      
-      {metrics.vad && <MetricBlock
-        title="VAD Metrics"
-        data={metrics.vad}
-        formatters={{ timestamp: formatTime }}
-      />}
-      
-      {metrics.eou && <MetricBlock
-        title="EOU Metrics"
-        data={metrics.eou}
-        formatters={{
-          end_of_utterance_delay: formatDuration,
-          transcription_delay: formatDuration,
-          timestamp: formatTime,
-        }}
-      />}
-      
-      {/* This is the block that will be rendered by our RealtimeModel */}
-      {metrics.llm && <MetricBlock
-        title="LLM Metrics"
-        data={metrics.llm}
-        formatters={{ ttft: formatDuration, total_latency: formatDuration, timestamp: formatTime }}
-      />}
-      
-      {metrics.tts && <MetricBlock
-        title="TTS Metrics"
-        data={metrics.tts}
-        formatters={{
-          ttfb: formatDuration,
-          audio_duration: formatDuration,
-          start_time: formatTime,
-        }}
-      />}
+    <div className="metrics-display-container">
+      <h3>Agent Metrics</h3>
+
+      {/* Transcript Metrics */}
+      {transcript && (
+        <div className="metric-group">
+          <h4>Transcript</h4>
+          <p>"{transcript}"</p>
+        </div>
+      )}
+
+      {/* VAD Metrics */}
+      {vad && (
+        <div className="metric-group">
+          <h4>VAD Metrics</h4>
+          <p>Timestamp: {formatTimestamp(vad.timestamp)}</p>
+        </div>
+      )}
+
+      {/* EOU Metrics */}
+      {eou && (
+        <div className="metric-group">
+          <h4>EOU Metrics</h4>
+          <p>End of Utterance Delay: {eou.end_of_utterance_delay?.toFixed(3)}s</p>
+          <p>Transcription Delay: {eou.transcription_delay?.toFixed(3)}s</p>
+          <p>Timestamp: {formatTimestamp(eou.timestamp)}</p>
+        </div>
+      )}
+
+      {/* LLM Metrics */}
+      {llm && (
+        <div className="metric-group">
+          <h4>LLM Metrics</h4>
+          <p>TTFT: {llm.ttft?.toFixed(3)}s</p>
+          <p>Total Tokens: {llm.total_tokens}</p>
+          <p>Timestamp: {formatTimestamp(llm.timestamp)}</p>
+        </div>
+      )}
+
+      {/* TTS Metrics */}
+      {tts && (
+        <div className="metric-group">
+          <h4>TTS Metrics</h4>
+          <p>TTFB: {tts.ttfb?.toFixed(3)}s</p>
+          <p>Audio Duration: {tts.audio_duration?.toFixed(3)}s</p>
+          <p>Start Time: {formatTimestamp(tts.timestamp)}</p>
+        </div>
+      )}
     </div>
   );
 }

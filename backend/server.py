@@ -16,8 +16,13 @@ def get_token():
     # --- FEATURE 1: Get model from request ---
     model = request.args.get("model", "gemini-2.5-flash-native-audio-preview-09-2025")
 
-    # --- FEATURE 1: Create metadata to pass to the agent ---
+    print(f"🔹 Received token request:")
+    print(f"   Identity: {identity}")
+    print(f"   Room: {room_name}")
+    print(f"   Model: {model}")
+
     metadata = json.dumps({"model": model})
+    print(f"✅ Metadata attached to token: {metadata}")
 
     token = api.AccessToken(os.getenv("LIVEKIT_API_KEY"), os.getenv("LIVEKIT_API_SECRET")) \
         .with_identity(identity)\
